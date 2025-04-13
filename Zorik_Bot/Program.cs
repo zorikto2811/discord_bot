@@ -1,5 +1,6 @@
 ﻿using Discord;
 using Discord.Commands;
+using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using System;
@@ -23,12 +24,23 @@ namespace Zorik_Bot
             client = new DiscordSocketClient();
             commands = new CommandService();
 
+            var config = new DiscordSocketConfig
+            {
+                LogLevel = LogSeverity.Warning,
+                GatewayIntents = GatewayIntents.All,
+            };
+            var servConfig = new InteractionServiceConfig()
+            { 
+                LogLevel = LogSeverity.Warning,
+                AutoServiceScopes = true,
+            };
+
             client.Log += Log;
             client.MessageReceived += HandleCommandAsync;
             await commands.AddModulesAsync(assembly: Assembly.GetEntryAssembly(),
                                 services: null);
 
-            var token = "MTM2MDA5Nzg4NjE4Mzg4Njk2OQ.G_jVLA.dgFR8cWK63yiEdf_HkAC4nZcezWoXgt9cAf_RY";
+            var token = "MTM2MDA5Nzg4NjE4Mzg4Njk2OQ.Gp0PP_._r-qG0j2db0Ib-bdhxAQWPBqxyZ1FS32jHX-xE";
 
             await client.LoginAsync(TokenType.Bot, token);
             await client.StartAsync();
