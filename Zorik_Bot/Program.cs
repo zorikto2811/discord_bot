@@ -9,26 +9,51 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Windows.Input;
 
 namespace Zorik_Bot
 {
     public class Program
     {
         private static DiscordSocketClient client;
+        private static CommandService commands;
 
         public static async Task Main()
         {
             client = new DiscordSocketClient();
-            client.Log += Log;
+            commands = new CommandService();
 
-            var token = "MTM2MDA5Nzg4NjE4Mzg4Njk2OQ.GWSIpm.jikPhvQeQ9N4IngCJlSAJX7Mi8y9wQpawJnXOg";
+            client.Log += Log;
+            client.MessageReceived += HandleCommandAsync;
+            await commands.AddModulesAsync(assembly: Assembly.GetEntryAssembly(),
+                                services: null);
+
+            var token = "MTM2MDA5Nzg4NjE4Mzg4Njk2OQ.G_jVLA.dgFR8cWK63yiEdf_HkAC4nZcezWoXgt9cAf_RY";
 
             await client.LoginAsync(TokenType.Bot, token);
             await client.StartAsync();
 
-            
-
             await Task.Delay(-1);
+        }
+
+        private static async Task HandleCommandAsync(SocketMessage messageParam)
+        {
+            var message = messageParam as SocketUserMessage;
+            if (message == null) return;
+
+            int argPos = 0;
+
+            if (!(message.HasCharPrefix('!', ref argPos) ||
+                message.HasMentionPrefix(client.CurrentUser, ref argPos)) ||
+                message.Author.IsBot)
+                return;
+
+            var context = new SocketCommandContext(client, message);
+
+            await commands.ExecuteAsync(
+                context: context,
+                argPos: argPos,
+                services: null);
         }
 
         private static Task Log(LogMessage msg)
