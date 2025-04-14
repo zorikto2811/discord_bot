@@ -21,7 +21,6 @@ namespace Zorik_Bot
 
         public static async Task Main()
         {
-            client = new DiscordSocketClient();
             commands = new CommandService();
 
             var config = new DiscordSocketConfig
@@ -35,12 +34,13 @@ namespace Zorik_Bot
                 AutoServiceScopes = true,
             };
 
-            client.Log += Log;
-            client.MessageReceived += HandleCommandAsync;
-            await commands.AddModulesAsync(assembly: Assembly.GetEntryAssembly(),
-                                services: null);
+            client = new DiscordSocketClient(config);
 
-            var token = "MTM2MDA5Nzg4NjE4Mzg4Njk2OQ.Gp0PP_._r-qG0j2db0Ib-bdhxAQWPBqxyZ1FS32jHX-xE";
+            client.Log += Log;
+            client.Ready += Client_Ready;
+            client.MessageReceived += HandleCommandAsync;
+
+            var token = "MTM1OTIwMDI1MjY0OTAxMzUyOQ.GqpP1K.3zAINnJB8Okf1n7_nCi9XYb-64j2S4LingQsY8";
 
             await client.LoginAsync(TokenType.Bot, token);
             await client.StartAsync();
@@ -48,24 +48,19 @@ namespace Zorik_Bot
             await Task.Delay(-1);
         }
 
+        private static async Task Client_Ready()
+        {
+            Console.WriteLine("Бот готов");
+        }
+
         private static async Task HandleCommandAsync(SocketMessage messageParam)
         {
-            var message = messageParam as SocketUserMessage;
-            if (message == null) return;
 
-            int argPos = 0;
-
-            if (!(message.HasCharPrefix('!', ref argPos) ||
-                message.HasMentionPrefix(client.CurrentUser, ref argPos)) ||
-                message.Author.IsBot)
-                return;
-
-            var context = new SocketCommandContext(client, message);
-
-            await commands.ExecuteAsync(
-                context: context,
-                argPos: argPos,
-                services: null);
+            if (!messageParam.Content.StartsWith("!") ||
+               messageParam.Author.IsBot)
+               return;
+            string cleanMessage = messageParam.Content.Remove(0, 1);
+            await messageParam.Channel.SendMessageAsync(cleanMessage);
         }
 
         private static Task Log(LogMessage msg)
