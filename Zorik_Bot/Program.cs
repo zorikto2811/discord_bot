@@ -3,25 +3,32 @@ using Discord.Commands;
 using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration.Json;
+using Microsoft.Extensions.Configuration.EnvironmentVariables;
 using System;
 using System.Collections.Generic;
+using System.Configuration;
 using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Windows.Input;
+using System.IO;
 
 namespace Zorik_Bot
 {
     public class Program
     {
         private static DiscordSocketClient client;
-        private static CommandService commands;
 
         public static async Task Main()
         {
-            commands = new CommandService();
+            var configuration = new ConfigurationBuilder()
+                .AddJsonFile(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "appsettings.json"), optional: false)
+                .AddEnvironmentVariables()
+                .Build();
 
             var config = new DiscordSocketConfig
             {
@@ -40,7 +47,13 @@ namespace Zorik_Bot
             client.Ready += Client_Ready;
             client.MessageReceived += HandleCommandAsync;
 
-            var token = "MTM1OTIwMDI1MjY0OTAxMzUyOQ.GqpP1K.3zAINnJB8Okf1n7_nCi9XYb-64j2S4LingQsY8";
+            var token = configuration["Discord:Token"] ?? Environment.GetEnvironmentVariable("DISCORD_TOKEN");
+            
+            if (string.IsNullOrEmpty(token))
+            {
+                Console.WriteLine("Нет токена");
+                return;
+            }
 
             await client.LoginAsync(TokenType.Bot, token);
             await client.StartAsync();
@@ -56,7 +69,7 @@ namespace Zorik_Bot
         private static async Task HandleCommandAsync(SocketMessage messageParam)
         {
 
-            if (!messageParam.Content.StartsWith("!") ||
+            if (!messageParam.Content.StartsWith("!say") ||
                messageParam.Author.IsBot)
                return;
             string cleanMessage = messageParam.Content.Remove(0, 1);
