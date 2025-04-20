@@ -4,9 +4,8 @@ using Discord.Interactions;
 using Discord.WebSocket;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Configuration.Json;
-using Microsoft.Extensions.Configuration.EnvironmentVariables;
 using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Linq;
@@ -15,13 +14,15 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Windows.Input;
-using System.IO;
+using Zorik_Bot.Zorik_Bot;
 
 namespace Zorik_Bot
 {
     public class Program
     {
         private static DiscordSocketClient client;
+        private static InteractionService interactions;
+        private static IServiceProvider services;
 
         public static async Task Main()
         {
@@ -41,11 +42,18 @@ namespace Zorik_Bot
                 AutoServiceScopes = true,
             };
 
-            client = new DiscordSocketClient(config);
+            // Setup services
+            services = new ServiceCollection()
+                .AddSingleton(client = new DiscordSocketClient(config))
+                .AddSingleton(interactions = new InteractionService(client, servConfig))
+                .BuildServiceProvider();
+
+            // Register modules
+            await interactions.AddModuleAsync<RoomManagementModule>(services);
 
             client.Log += Log;
             client.Ready += Client_Ready;
-            client.MessageReceived += HandleCommandAsync;
+            client.InteractionCreated += HandleInteraction;
 
             var token = configuration["Discord:Token"] ?? Environment.GetEnvironmentVariable("DISCORD_TOKEN");
             
@@ -64,16 +72,33 @@ namespace Zorik_Bot
         private static async Task Client_Ready()
         {
             Console.WriteLine("Бот готов");
+            await interactions.RegisterCommandsGloballyAsync();
         }
 
-        private static async Task HandleCommandAsync(SocketMessage messageParam)
+        private static async Task HandleInteraction(SocketInteraction interaction)
         {
-
-            if (!messageParam.Content.StartsWith("!say") ||
-               messageParam.Author.IsBot)
-               return;
-            string cleanMessage = messageParam.Content.Remove(0, 1);
-            await messageParam.Channel.SendMessageAsync(cleanMessage);
+            try
+            {
+                var context = new SocketInteractionContext(client, interaction);
+                var result = await interactions.ExecuteCommandAsync(context, services);
+                
+                if (!result.IsSuccess)
+                {
+                    Console.WriteLine($"Error executing command: {result.ErrorReason}");
+                    if (interaction.Type == InteractionType.ApplicationCommand)
+                    {
+                        await interaction.RespondAsync("Произошла ошибка при выполнении команды.", ephemeral: true);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                if (interaction.Type == InteractionType.ApplicationCommand)
+                {
+                    await interaction.RespondAsync("Произошла ошибка при выполнении команды.", ephemeral: true);
+                }
+            }
         }
 
         private static Task Log(LogMessage msg)
