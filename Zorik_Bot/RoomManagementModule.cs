@@ -35,7 +35,8 @@
                     .WithButton("Выдать доступ", "grant_access", ButtonStyle.Success)
                     .WithButton("Забрать доступ", "revoke_access", ButtonStyle.Danger)
                     .WithButton("Выдать право говорить", "grant_speak", ButtonStyle.Success)
-                    .WithButton("Изменить лимит", "change_limit", ButtonStyle.Secondary);
+                    .WithButton("Изменить лимит", "change_limit", ButtonStyle.Secondary)
+                    .WithButton("Открыть/Закрыть комнату", "toggle_privacy", ButtonStyle.Secondary);
 
                 await RespondAsync("Управление комнатой:", components: builder.Build(), ephemeral: true);
             }
@@ -61,6 +62,76 @@
                     .WithColor(Color.Blue);
 
                 await RespondAsync(embed: embed.Build(), ephemeral: true);
+            }
+
+            public class LimitModal : IModal
+            {
+                public string Title => "Изменение лимита пользователей";
+                [InputLabel("Новый лимит пользователей")]
+                [ModalTextInput("user_limit", placeholder: "Введите число от 0 до 99 (0 = без лимита)", minLength: 1, maxLength: 2)]
+                public string UserLimit { get; set; }
+            }
+
+            [ComponentInteraction("change_limit")]
+            public async Task ChangeLimit()
+            {
+                var user = Context.User as SocketGuildUser;
+                var channel = user?.VoiceChannel;
+
+                if (channel == null)
+                {
+                    await RespondAsync("Вы не находитесь в голосовом канале.", ephemeral: true);
+                    return;
+                }
+
+                await RespondWithModalAsync<LimitModal>("limit_modal");
+            }
+
+            [ModalInteraction("limit_modal")]
+            public async Task HandleLimitModal(LimitModal modal)
+            {
+                var user = Context.User as SocketGuildUser;
+                var channel = user?.VoiceChannel;
+
+                if (channel == null)
+                {
+                    await RespondAsync("Вы не находитесь в голосовом канале.", ephemeral: true);
+                    return;
+                }
+
+                if (!int.TryParse(modal.UserLimit, out int limit))
+                {
+                    await RespondAsync("Пожалуйста, введите корректное число.", ephemeral: true);
+                    return;
+                }
+
+                if (limit < 0 || limit > 99)
+                {
+                    await RespondAsync("Лимит пользователей должен быть от 0 до 99.", ephemeral: true);
+                    return;
+                }
+
+                await channel.ModifyAsync(x => x.UserLimit = limit);
+                await RespondAsync($"Лимит пользователей изменен на {(limit == 0 ? "без лимита" : limit.ToString())}.", ephemeral: true);
+            }
+
+            [ComponentInteraction("toggle_privacy")]
+            public async Task TogglePrivacy()
+            {
+                var user = Context.User as SocketGuildUser;
+                var channel = user?.VoiceChannel;
+
+                if (channel == null)
+                {
+                    await RespondAsync("Вы не находитесь в голосовом канале.", ephemeral: true);
+                    return;
+                }
+
+                bool isPrivate = channel.Name.StartsWith("🔒");
+                string newName = isPrivate ? channel.Name.Substring(2) : "🔒" + channel.Name;
+                
+                await channel.ModifyAsync(x => x.Name = newName);
+                await RespondAsync($"Комната {(isPrivate ? "открыта" : "закрыта")}.", ephemeral: true);
             }
         }
     }
